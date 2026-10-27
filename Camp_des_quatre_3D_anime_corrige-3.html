@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Le Camp des Quatre · Anime 3D</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui,-apple-system,Segoe UI,sans-serif}
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#07101f;color:#f5f0e8}
+#stage{position:fixed;inset:0}canvas{display:block;width:100%;height:100%;touch-action:manipulation}
+.hud{position:fixed;inset:0;pointer-events:none;display:flex;flex-direction:column;justify-content:space-between;padding:max(14px,env(safe-area-inset-top)) 14px max(14px,env(safe-area-inset-bottom))}
+.top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.brand{background:linear-gradient(135deg,#111d36d9,#15172bd9);border:1px solid #a9c9ff55;border-radius:16px;padding:11px 14px;backdrop-filter:blur(10px);box-shadow:0 8px 35px #0004}
+.brand strong{display:block;font-size:clamp(14px,2.5vw,21px);letter-spacing:.04em}.brand span{font-size:11px;color:#b7c9ec}
+.pill{border:1px solid #d6e2ff55;background:#0a1426bb;border-radius:99px;padding:9px 12px;font-size:11px;color:#d9e7ff}
+.bottom{display:flex;align-items:flex-end;justify-content:space-between;gap:10px}
+.tip{font-size:12px;color:#e0e8f8;background:#10192bbd;border:1px solid #b8ceff33;border-radius:12px;padding:10px 12px;max-width:70%;backdrop-filter:blur(8px)}
+.card{pointer-events:auto;display:none;max-width:260px;background:#10192beF;border:1px solid #b8ceff66;border-radius:16px;padding:14px;box-shadow:0 12px 36px #0006}
+.card.show{display:block;animation:pop .22s ease-out}
+.card h2{font-size:18px;margin:0 0 5px}.card p{font-size:12px;line-height:1.45;color:#d0dbef;margin:0 0 12px}
+.actions{display:flex;gap:7px;flex-wrap:wrap}.actions button{border:1px solid #a9c9ff66;background:#1d3153;color:#fff;border-radius:10px;padding:9px 11px;font-weight:600}
+#reset{pointer-events:auto;border:1px solid #d6e2ff55;background:#0a1426cc;color:#e8efff;border-radius:12px;padding:10px 12px}
+#loading{position:fixed;inset:0;display:grid;place-items:center;background:#07101f;color:#e5edff;z-index:5;transition:opacity .5s}
+#loading.hide{opacity:0;pointer-events:none}.loadbox{text-align:center;padding:22px;max-width:520px}.spinner{width:30px;height:30px;border:3px solid #6b83ad55;border-top-color:#ffe4a0;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 12px}.load-help{display:none;margin-top:14px;text-align:left;background:#111d36;border:1px solid #a9c9ff55;border-radius:12px;padding:13px;font-size:13px;line-height:1.5;color:#dbe6ff}.load-help code{color:#ffe4a0;overflow-wrap:anywhere}
+@keyframes spin{to{transform:rotate(360deg)}}@keyframes pop{from{opacity:0;transform:translateY(8px) scale(.97)}to{opacity:1;transform:none}}
+@media(max-width:560px){.hud{padding-left:9px;padding-right:9px}.brand{padding:9px 11px}.pill{display:none}.tip{font-size:11px;max-width:65%}.card{max-width:235px;padding:11px}.bottom{align-items:flex-end}}
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<div id="loading"><div class="loadbox"><div class="spinner" id="spinner"></div><strong id="load-title">Préparation du camp…</strong><div id="load-sub" style="font-size:12px;color:#a9b8d5;margin-top:7px">Allumage des lanternes et des braises</div><div class="load-help" id="load-help">Le moteur 3D ne s’est pas chargé. Ce fichier utilise Three.js depuis Internet et doit être ouvert dans un vrai navigateur, via un serveur web, et non dans l’aperçu de fichiers du téléphone.<br><br><b>Pour le lancer :</b><br>1. Place le fichier dans un dépôt GitHub.<br>2. Active <b>Settings → Pages</b> sur la branche et le dossier contenant le HTML.<br>3. Ouvre l’adresse <code>https://ton-compte.github.io/ton-depot/</code> dans Chrome.<br><br>Vérifie aussi que la connexion Internet fonctionne. Si l’erreur persiste sur le site hébergé, le CDN peut être bloqué ou indisponible.</div></div></div>
+<script>
+/* File-protocol previews and blocked CDN imports can prevent the module from starting.
+   Show a useful message instead of leaving an endless spinner. */
+window.setTimeout(() => {
+  const loading = document.getElementById('loading');
+  if (loading && !document.querySelector('#stage canvas')) {
+    document.getElementById('spinner').style.display = 'none';
+    document.getElementById('load-title').textContent = 'Le moteur 3D ne démarre pas';
+    document.getElementById('load-sub').textContent = 'Ce n’est pas le rendu attendu : consulte les étapes ci-dessous.';
+    document.getElementById('load-help').style.display = 'block';
+  }
+}, 10000);
+window.addEventListener('error', (event) => {
+  const sub = document.getElementById('load-sub');
+  if (sub && !document.querySelector('#stage canvas')) {
+    sub.textContent = 'Erreur de chargement : ' + (event.message || 'ressource indisponible');
+  }
+});
+window.addEventListener('unhandledrejection', (event) => {
+  const sub = document.getElementById('load-sub');
+  if (sub && !document.querySelector('#stage canvas')) {
+    sub.textContent = 'Erreur JavaScript : ' + (event.reason?.message || String(event.reason));
+  }
+});
+</script>
+<div class="hud">
+  <div class="top"><div class="brand"><strong>LE CAMP DES QUATRE</strong><span>Une nuit, quatre aventuriers, mille histoires</span></div><div class="pill">✦ Touchez un héros pour le découvrir</div></div>
+  <div class="bottom">
+    <div class="tip" id="tip">Touchez un aventurier pour déclencher son animation spéciale ✦</div>
+    <div class="card" id="card"><h2 id="name">L’Archère</h2><p id="desc">Gardienne des sentiers nocturnes.</p><div class="actions"><button id="special">Effet spécial ✦</button><button id="close">Fermer</button></div></div>
+    <button id="reset">↻ Vue du camp</button>
+  </div>
+</div>
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js';
+
+const stage=document.querySelector('#stage');
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x08112b);
+scene.fog=new THREE.FogExp2(0x101b36,.025);
+const camera=new THREE.PerspectiveCamera(42,innerWidth/innerHeight,.1,150);
+camera.position.set(0,7.5,17);
+const renderer=new THREE.WebGLRenderer({antialias:true,alpha:false});
+renderer.setPixelRatio(Math.min(devicePixelRatio,1.7));
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.25;
+stage.appendChild(renderer.domElement);
+const controls=new OrbitControls(camera,renderer.domElement);
+controls.enableDamping=true;controls.dampingFactor=.055;controls.target.set(0,2.1,0);
+controls.minDistance=10;controls.maxDistance=24;controls.maxPolarAngle=Math.PI*.49;
+controls.enablePan=false;controls.autoRotate=true;controls.autoRotateSpeed=.25;
+
+// Anime-friendly lights and materials
+scene.add(new THREE.HemisphereLight(0x9dbbff,0x25301e,2.1));
+const moon=new THREE.DirectionalLight(0x9bbcff,2.6);moon.position.set(-7,12,5);moon.castShadow=true;moon.shadow.mapSize.set(1024,1024);scene.add(moon);
+const rim=new THREE.DirectionalLight(0x8d75ff,1.2);rim.position.set(7,6,-8);scene.add(rim);
+const warm=new THREE.PointLight(0xff762c,18,10,2);warm.position.set(0,1.6,1);scene.add(warm);
+const gold=new THREE.PointLight(0xffd780,7,8,2);gold.position.set(0,2.6,1);scene.add(gold);
+const mat=(color,roughness=.82,emissive=0x000000,emissiveIntensity=0)=>new THREE.MeshStandardMaterial({color,roughness,flatShading:true,emissive,emissiveIntensity});
+const mats={
+grass:mat(0x172b28),darkGrass:mat(0x0d1d21),bark:mat(0x493023),barkLight:mat(0x73503a),
+skin:mat(0xf1c5a9),hairSilver:mat(0xd9e4f6),hairBlack:mat(0x171a2a),hairRed:mat(0xc65b38),
+blue:mat(0x344c85),navy:mat(0x1a2345),white:mat(0xe8eaf2),gold:mat(0xe6bd67),
+red:mat(0x9e2438),leather:mat(0x493127),metal:mat(0x9aaac6,.35),
+eye:mat(0x152448,.25),eyeBlue:mat(0x36a9ff,.25,0x0a5aff,.3),eyeRed:mat(0xff3f55,.25,0x9a0018,.25),
+eyeGold:mat(0xffd45b,.25,0x9b5a00,.25),fire:mat(0xff7b20,.4,0xff4c00,2),fireCore:mat(0xffed9b,.4,0xffb52e,2.5),
+};
+function mesh(geo,material,parent,pos=[0,0,0],scale=null){const o=new THREE.Mesh(geo,material);o.position.set(...pos);if(scale)o.scale.set(...scale);o.castShadow=true;o.receiveShadow=true;parent.add(o);return o}
+function sphere(parent,material,pos,scale){return mesh(new THREE.SphereGeometry(1,16,12),material,parent,pos,scale)}
+function box(parent,material,pos,scale){return mesh(new THREE.BoxGeometry(...scale),material,parent,pos)}
+function cone(parent,material,pos,r,h,seg=8){return mesh(new THREE.ConeGeometry(r,h,seg),material,parent,pos)}
+function cylinder(parent,material,pos,r1,r2,h,seg=10){return mesh(new THREE.CylinderGeometry(r1,r2,h,seg),material,parent,pos)}
+function line(parent,material,a,b,r=.06){const va=new THREE.Vector3(...a),vb=new THREE.Vector3(...b),d=vb.clone().sub(va);const o=mesh(new THREE.CylinderGeometry(r,r,d.length(),8),material,parent,va.clone().add(vb).multiplyScalar(.5).toArray());o.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),d.normalize());return o}
+const ground=mesh(new THREE.CircleGeometry(35,64),mats.grass,scene,[0,-.12,0]);ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;
+const clearing=mesh(new THREE.CircleGeometry(7,48),mat(0x27312d),scene,[0,-.08,0]);clearing.rotation.x=-Math.PI/2;clearing.scale.set(1.4,.95,1);
+// Small grass blades
+for(let i=0;i<300;i++){const a=Math.random()*Math.PI*2,r=5+Math.random()*16,x=Math.cos(a)*r,z=Math.sin(a)*r;if(Math.abs(x)<6&&Math.abs(z)<5)continue;const g=cone(scene,mat(Math.random()>.5?0x2a563c:0x183c31),[x,.18,z],.08,.45,4);g.rotation.z=(Math.random()-.5)*.5;g.rotation.x=(Math.random()-.5)*.5;g.scale.y=.6+Math.random()*1.5}
+// Distant pine forest
+for(let i=0;i<46;i++){const a=i/46*Math.PI*2,r=15+Math.random()*6,x=Math.cos(a)*r,z=Math.sin(a)*r;const h=2.8+Math.random()*3.4;const trunk=cylinder(scene,mats.bark,[x,h*.22,z],.16,.24,h*.45,7);for(let j=0;j<3;j++)cone(scene,mat(j%2?0x102c32:0x173b3c),[x,h*.4+j*h*.19,z],h*(.24-j*.045),h*.42,7)}
+// Ancient tree on the left
+const tree=new THREE.Group();scene.add(tree);tree.position.set(-7,0,-1);
+line(tree,mats.bark,[0,0,0],[.3,7,-.3],.62);
+line(tree,mats.barkLight,[.1,3,-.2],[-2,5,-.2],.28);line(tree,mats.bark,[.2,4,0],[2,6,-.3],.25);
+for(let i=0;i<18;i++){const x=(Math.random()-.5)*5,z=(Math.random()-.5)*2.4,y=5+Math.random()*3;sphere(tree,mat(Math.random()>.5?0x1c4b38:0x23533a),[x,y,z],[1.2+Math.random(),.8+Math.random(),1.1])}
+// Distant castle silhouette
+const castle=new THREE.Group();scene.add(castle);castle.position.set(0,0,-17);
+box(castle,mat(0x11172f),[0,2,0],[5,4,1.1]);
+for(let i=0;i<5;i++){const x=-2+i;box(castle,mat(0x11172f),[x,3.8,-.05],[.7,3.6+Math.random()*2,.7]);cone(castle,mat(0x171c3b),[x,6,-.05],.55,1.3,5)}
+for(let i=0;i<18;i++){const w=box(castle,mat(0xffc96e,.4,0xffa52c,1.8),[-2.2+Math.random()*4.4,1+Math.random()*4,.58],[.08,.14,.04]);}
+// Camp logs and stones
+for(let i=0;i<2;i++){const log=cylinder(scene,mat(0x593b29),[i?2.4:-2.4,.22,.3],.22,.22,4,10);log.rotation.z=Math.PI/2;log.rotation.y=.18}
+for(let i=0;i<13;i++){const a=i/13*Math.PI*2;const rock=sphere(scene,mat(i%2?0x5d5b60:0x79716b),[Math.cos(a)*1.35,.18,Math.sin(a)*.85],[.28,.18,.25])}
+// Campfire flame layers
+const fireGroup=new THREE.Group();scene.add(fireGroup);fireGroup.position.set(0,.45,.3);
+const flame1=cone(fireGroup,mats.fire,[0,.65,0],.55,1.8,7);flame1.rotation.z=.1;
+const flame2=cone(fireGroup,mats.fireCore,[-.12,.48,.06],.31,1.2,7);
+const flame3=cone(fireGroup,mat(0xffd56a,.4,0xff9a16,2),[.2,.4,-.1],.25,.9,7);
+
+
+// Lanterns
+function lantern(x,y,z){const g=new THREE.Group();scene.add(g);g.position.set(x,y,z);cylinder(g,mats.bark,[0,-.22,0],.05,.05,.55,7);const bulb=sphere(g,mat(0xffc76c,.3,0xff9d22,2),[0,-.52,0],[.16,.22,.16]);const l=new THREE.PointLight(0xffb74f,3,5);l.position.set(0,-.5,0);g.add(l);return g}
+lantern(-5,4,1);lantern(6,3,-1);lantern(-2,2,-4);
+// Steam wisps
+const steamMat=new THREE.MeshBasicMaterial({color:0xd8e9ff,transparent:true,opacity:.18,depthWrite:false});
+const steam=[];for(let i=0;i<9;i++){const s=mesh(new THREE.SphereGeometry(.18,8,6),steamMat,scene,[2.2+Math.random()*.4,.8+Math.random(),-.3],[.6,1.2,.6]);steam.push({o:s,phase:Math.random()*6.28})}
+const pot= new THREE.Group();scene.add(pot);pot.position.set(2.2,.15,-.3);
+cylinder(pot,mat(0x25283a),[0,.65,0],.62,.5,.8,14);
+const broth=sphere(pot,mat(0x79c66a,.3,0x2a8a2c,.5),[0,1.03,0],[.56,.08,.56]);
+line(pot,mats.metal,[-.65,1.18,0],[.65,1.18,0],.045);
+const spoon=line(pot,mat(0xb99b69),[-.2,1.2,.15],[-.65,1.55,.2],.045);
+
+// Character construction. These are stylized procedural 3D stand-ins, not finished sculpted production models.
+const characters=[];
+function makeCharacter(type,name,desc,x,z,scale=1){
+ const root=new THREE.Group();scene.add(root);root.position.set(x,0,z);root.scale.setScalar(scale);
+ const rig=new THREE.Group();root.add(rig);
+ const isElf=type==='archer',isMage=type==='mage',isCook=type==='cook',isAssassin=type==='assassin';
+ const robe=isElf?mats.blue:isMage?mats.white:isCook?mat(0x824431):mats.navy;
+ const hair=isElf||isMage?mats.hairSilver:isCook?mats.hairRed:mats.hairBlack;
+ const iris=isElf?mats.eyeBlue:isMage?mats.eyeGold:isCook?mat(0x9b5931):mats.eyeRed;
+ // Body and outfit
+ const body=sphere(rig,robe,[0,1.65,0],[.58,.83,.38]);
+ if(isMage){const cloak=cone(rig,mat(0xe8e8ee),[0,1.12,0],.78,1.65,8);cloak.rotation.x=Math.PI}
+ if(isCook){box(rig,mats.white,[0,1.62,.22],[.66,.8,.13]);box(rig,mats.gold,[0,1.38,.31],[.65,.09,.08])}
+ if(isAssassin){const scarf=box(rig,mats.red,[-.55,2.05,-.05],[.95,.16,.12]);scarf.rotation.z=.28}
+ // Legs
+ const legMat=isAssassin?mats.navy:mat(0x282b3b);
+ const legL=line(rig,legMat,[-.22,1.08,0],[-.27,.22,.03],.14);
+ const legR=line(rig,legMat,[.22,1.08,0],[.3,.22,.03],.14);
+ // Boots
+ sphere(rig,mats.leather,[-.28,.15,.12],[.22,.12,.32]);sphere(rig,mats.leather,[.3,.15,.12],[.22,.12,.32]);
+ // Neck and face
+ cylinder(rig,mats.skin,[0,2.47,0],.14,.16,.25,8);
+ const head=new THREE.Group();rig.add(head);head.position.set(0,2.92,.02);
+ sphere(head,mats.skin,[0,0,0],[.48,.55,.42]);
+ // pointed ears for elf/mage
+ if(isElf||isMage){const earL=cone(head,mats.skin,[-.49,.04,0],.15,.55,4);earL.rotation.z=Math.PI/2;const earR=cone(head,mats.skin,[.49,.04,0],.15,.55,4);earR.rotation.z=-Math.PI/2}
+ // Hair cap and fringe tufts
+ sphere(head,hair,[0,.27,-.04],[.51,.36,.46]);
+ for(let i=0;i<5;i++){const t=cone(head,hair,[-.34+i*.17,.26+Math.random()*.12,.29],.17,.42,5);t.rotation.z=(i-2)*.28;t.rotation.x=-.18}
+ if(isElf||isMage){const lock=sphere(head,hair,[.37,-.35,-.02],[.13,.72,.16]);lock.rotation.z=-.12;const lock2=sphere(head,hair,[-.39,-.27,-.02],[.13,.58,.16]);lock2.rotation.z=.12}
+ if(isAssassin){const hood=cone(head,mats.hairBlack,[0,.3,-.14],.68,.9,7);hood.rotation.x=-.15}
+ // Eyes facing camera (+z)
+ for(const ex of [-.18,.18]){
+  sphere(head,mat(0xf9f7f4),[ex,.02,.365],[.12,.16,.055]);
+  sphere(head,iris,[ex,.015,.414],[.066,.11,.03]);
+  sphere(head,mat(0x111522),[ex,.012,.44],[.032,.07,.018]);
+  sphere(head,mat(0xffffff),[ex-.02,.06,.46],[.025,.03,.012]);
+  const brow=box(head,hair,[ex,.22,.37],[.17,.045,.04]);brow.rotation.z=ex<0?.12:-.12;
+ }
+ // mouth
+ const mouth=box(head,mat(isCook?0x9e3737:0x8d3d4b),[0,-.23,.39],[.11,.025,.02]);
+ // Arms and hands
+ const armMat=isMage?mats.white:isElf?mats.blue:isCook?mat(0x824431):mats.navy;
+ const armL=line(rig,armMat,[-.48,2.12,0],[-.72,1.55,.12],.14);
+ const armR=line(rig,armMat,[.48,2.12,0],[.7,1.65,.18],.14);
+ const handL=sphere(rig,mats.skin,[-.72,1.55,.12],[.13,.13,.13]);
+ const handR=sphere(rig,mats.skin,[.7,1.65,.18],[.13,.13,.13]);
+ // Signature equipment
+ let prop=null;
+ if(isElf){prop=line(rig,mats.gold,[.92,.65,0],[.92,2.85,0],.035);prop.rotation.z=-.14;const bow=sphere(rig,mat(0x9a673e),[1.02,2.15,-.02],[.12,.72,.08]);bow.rotation.z=.3;line(rig,mats.gold,[.95,1.5,.02],[.95,2.8,.02],.012)}
+ if(isAssassin){prop=box(rig,mats.metal,[.86,2.05,.05],[.07,.95,.08]);prop.rotation.z=-.25}
+ if(isCook){const hat=cylinder(head,mats.white,[0,.65,0],.35,.28,.22,10);sphere(head,mats.white,[-.15,.77,0],[.22,.22,.22]);sphere(head,mats.white,[.12,.79,0],[.22,.24,.22]);box(rig,mats.gold,[-.65,1.38,.2],[.32,.045,.32])}
+ if(isMage){const orb=sphere(rig,mat(0xffe6a0,.25,0xffc544,2),[.86,2.25,.18],[.19,.19,.19]);prop=orb}
+ // Ground aura
+ const aura=mesh(new THREE.RingGeometry(.65,.78,48),new THREE.MeshBasicMaterial({color:isElf?0x54cfff:isAssassin?0xff425b:isCook?0xffa04a:0xffdc7a,transparent:true,opacity:.0,side:THREE.DoubleSide}),scene,[x,.025,z]);aura.rotation.x=-Math.PI/2;
+ // Click burst group
+ const effects=new THREE.Group();scene.add(effects);effects.position.set(x,1.7,z);
+ const ring=mesh(new THREE.TorusGeometry(.8,.035,6,48),new THREE.MeshBasicMaterial({color:isElf?0x5bdcff:isAssassin?0xff5267:isCook?0xffa45c:0xffe28a,transparent:true,opacity:0}),effects,[0,0,0]);ring.rotation.x=.3;
+ const particles=[];
+ for(let i=0;i<22;i++){const p=sphere(effects,new THREE.MeshBasicMaterial({color:isElf?0x71dfff:isAssassin?0xff5169:isCook?0xffb36b:0xffe28a,transparent:true,opacity:0}),[0,0,0],[.045,.045,.045]);particles.push(p)}
+ const entry={type,name,desc,root,rig,head,armL,armR,handL,handR,legL,legR,aura,effects,ring,particles,prop,phase:Math.random()*6.28,active:0,home:new THREE.Vector3(x,0,z)};
+ characters.push(entry);root.userData.character=entry;return entry;
+}
+makeCharacter('assassin','L’Assassin','Silencieux et vigilant, il veille depuis la lisière.',-4.2,-1.3,.88);
+makeCharacter('archer','L’Archère','Une elfe précise qui connaît chaque sentier de la forêt.',-2.15,1.25,1.0);
+makeCharacter('cook','Le Cuisinier','Le gardien du chaudron. Même les héros ont besoin de dîner.',2.25,1.2,1.0);
+makeCharacter('mage','Le Mage','Sa magie dorée éclaire les nuits les plus longues.',4.1,-1.1,.96);
+
+// Night sky stars and moon
+const starsGeo=new THREE.BufferGeometry(),starPos=[];
+for(let i=0;i<650;i++)starPos.push((Math.random()-.5)*60,5+Math.random()*24,-12-Math.random()*30);
+starsGeo.setAttribute('position',new THREE.Float32BufferAttribute(starPos,3));
+const starField=new THREE.Points(starsGeo,new THREE.PointsMaterial({color:0xdde8ff,size:.055,transparent:true,opacity:.8}));scene.add(starField);
+const moonMesh=sphere(scene,mat(0xe4edff,.6,0x809aff,.25),[-9,12,-20],[1.4,1.4,1.4]);
+const moonGlow=sphere(scene,new THREE.MeshBasicMaterial({color:0x789bff,transparent:true,opacity:.08}),[-9,12,-20],[2.5,2.5,2.5]);
+// Fire embers
+const emberMat=new THREE.MeshBasicMaterial({color:0xffb766});
+const embers=[];
+for(let i=0;i<50;i++){const e=mesh(new THREE.SphereGeometry(.025+Math.random()*.025,6,5),emberMat,scene,[0,0,0]);embers.push({mesh:e,phase:Math.random()*6.28,speed:.4+Math.random()*.9,drift:(Math.random()-.5)*.5})}
+// Floating firefly motes
+const motes=[];
+for(let i=0;i<36;i++){const o=sphere(scene,mat(0xb8f6a1,.3,0x70ff75,1.2),[(Math.random()-.5)*17,1+Math.random()*5,(Math.random()-.5)*13],[.035,.035,.035]);motes.push({o,phase:Math.random()*6.28})}
+
+// Interactions
+const raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2();
+let selected=null;
+const card=document.querySelector('#card'),nameEl=document.querySelector('#name'),descEl=document.querySelector('#desc'),tip=document.querySelector('#tip');
+function selectCharacter(ch){selected=ch;controls.autoRotate=false;nameEl.textContent=ch.name;descEl.textContent=ch.desc;card.classList.add('show');tip.textContent='Personnage sélectionné : '+ch.name+' · Lancez son effet spécial';ch.active=1.2;ch.aura.material.opacity=.75;trigger(ch)}
+function trigger(ch){ch.active=1.7;ch.ring.material.opacity=1;ch.ring.scale.setScalar(.4);ch.ring.userData.age=0;ch.effects.visible=true;for(let i=0;i<ch.particles.length;i++){const p=ch.particles[i],a=i/ch.particles.length*Math.PI*2,r=.4+Math.random()*1.5;p.userData.vx=Math.cos(a)*r;p.userData.vy=.6+Math.random()*2;p.userData.vz=Math.sin(a)*r;p.position.set(0,.1,0);p.material.opacity=1}warm.intensity=25;setTimeout(()=>warm.intensity=18,260)}
+renderer.domElement.addEventListener('pointerdown',e=>{pointer.x=e.clientX/innerWidth*2-1;pointer.y=-(e.clientY/innerHeight)*2+1;raycaster.setFromCamera(pointer,camera);const roots=characters.flatMap(c=>c.root.children);const hits=raycaster.intersectObjects(roots,true);let ch=null;for(const h of hits){let o=h.object;while(o&&!o.userData.character)o=o.parent;if(o){ch=o.userData.character;break}}if(ch)selectCharacter(ch)});
+document.querySelector('#special').addEventListener('click',()=>selected&&trigger(selected));
+document.querySelector('#close').addEventListener('click',()=>{card.classList.remove('show');selected=null;tip.textContent='Touchez un aventurier pour déclencher son animation spéciale ✦'});
+document.querySelector('#reset').addEventListener('click',()=>{camera.position.set(0,7.5,17);controls.target.set(0,2.1,0);controls.autoRotate=true;controls.update();card.classList.remove('show');selected=null;tip.textContent='Vue générale du camp restaurée.'});
+let last=0;
+function animate(ms){requestAnimationFrame(animate);const t=ms*.001;const dt=Math.min(.04,(ms-last)*.001||.016);last=ms;
+ flame1.scale.y=1+Math.sin(t*8)*.13;flame1.rotation.z=Math.sin(t*4)*.12;flame2.scale.y=1+Math.sin(t*10+1)*.12;flame3.rotation.z=Math.sin(t*7)*.2;
+ warm.intensity=17+Math.sin(t*12)*2.3;gold.intensity=7+Math.sin(t*5)*.8;
+ spoon.rotation.z=Math.sin(t*1.7)*.35;broth.scale.x=.56+Math.sin(t*2)*.015;
+ steam.forEach(s=>{s.o.position.y=.8+((t*.4+s.phase)%1.8);s.o.position.x=2.2+Math.sin(t+s.phase)*.18;s.o.material=steamMat;s.o.scale.set(.4+((t+s.phase)%1)*.5,.7+((t+s.phase)%1),.4+((t+s.phase)%1)*.5);});
+ characters.forEach(ch=>{const bob=Math.sin(t*2+ch.phase)*.045;ch.rig.position.y=bob;ch.head.rotation.y=Math.sin(t*.65+ch.phase)*.07;ch.head.rotation.z=Math.sin(t*1.1+ch.phase)*.025;ch.armL.rotation.z=Math.sin(t*1.7+ch.phase)*.05;ch.armR.rotation.z=Math.sin(t*1.5+ch.phase)*.05;
+ if(ch.type==='assassin'){ch.root.rotation.y=Math.sin(t*.6)*.04}
+ if(ch.type==='cook'){ch.armR.rotation.x=Math.sin(t*2.1)*.18}
+ if(ch.type==='mage'&&ch.prop){ch.prop.position.y=2.25+Math.sin(t*2)*.14}
+ ch.active=Math.max(0,ch.active-dt);ch.aura.material.opacity=ch.active>0?.3+Math.sin(t*10)*.18:0;
+ ch.ring.userData.age=(ch.ring.userData.age||0)+dt;ch.ring.scale.setScalar(.4+ch.ring.userData.age*1.6);ch.ring.material.opacity=Math.max(0,ch.ring.material.opacity-dt*1.2);
+ ch.particles.forEach(p=>{if(p.material.opacity>0){p.position.x+=p.userData.vx*dt;p.position.y+=p.userData.vy*dt;p.position.z+=p.userData.vz*dt;p.userData.vy-=1.7*dt;p.material.opacity=Math.max(0,p.material.opacity-dt*.8)}})
+ });
+ embers.forEach(e=>{const y=((t*e.speed+e.phase)%2.6);e.mesh.position.set(Math.sin(t+e.phase)*.5+e.drift,y+.5,Math.cos(t*.8+e.phase)*.35+.3);e.mesh.material.opacity=Math.max(.1,1-y/3)});
+ motes.forEach(m=>{m.o.position.y=1.2+Math.sin(t*.7+m.phase)*1.8;m.o.position.x+=Math.sin(t+m.phase)*dt*.12;m.o.position.z+=Math.cos(t*.8+m.phase)*dt*.1});
+ controls.update();renderer.render(scene,camera);
+}
+requestAnimationFrame(animate);
+addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,1.7))});
+document.querySelector('#loading').classList.add('hide');setTimeout(()=>document.querySelector('#loading').remove(),650);
+</script>
+</body>
+</html>
